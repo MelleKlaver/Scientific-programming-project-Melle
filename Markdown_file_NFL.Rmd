@@ -3,21 +3,25 @@ title: "NFL database"
 output: html_document
 date: "2023-09-21"
 ---
-During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in american football in the NFL(official national league of the US). I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
+  During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in american football in the NFL(official national league of the US). I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
 ```
 
-```{r packages, include=FALSE}
+```{r packages}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 ```
 
-```{r import, include=FALSE}
+```{r import}
 #The following commands set the directory and load in all the data
-setwd("C:/Users/MK122/OneDrive/Bureaublad/School/Systems Biology/Scientific programming/NFL database")
+setwd("C:/Users/MK122/OneDrive/Bureaublad/School/Systems Biology/Scientific programming/Final skills session/Git/Scientific-programming-project-Melle")
 Quarterback_gamelogs = read.csv("Game_Logs_Quarterback.csv")
 Runningback_gamelogs = read.csv('Game_Logs_Runningback.csv')
 WideReceiver_gamelogs = read.csv("Game_Logs_Wide_Receiver_and_Tight_End.csv")
@@ -54,7 +58,7 @@ Kicker_gamelogs = left_join(Kicker_gamelogs, Basic_stats %>% select(Player.Id, B
 Kicker_gamelogs$Age =  Kicker_gamelogs$Year - Kicker_gamelogs$Birthyear
 ```
 
-```{r Game_inclusion, warning=FALSE}
+```{r Game_inclusion}
 #Removes data of games where the players didn't actually play or games outside of the regular season which aren't representative of how they play
 Quarterback_gamelogs = filter(Quarterback_gamelogs, Passes.Attempted>0)
 Quarterback_gamelogs = filter(Quarterback_gamelogs, Season=="Regular Season")
@@ -74,7 +78,7 @@ Kicker_gamelogs = filter(Kicker_gamelogs, Season=="Regular Season")
 ```
 
 
-```{r Data Manipulation, warning=FALSE, include=FALSE}
+```{r Data Manipulation}
 #Changes NA's into 0 so we can sum them later on
 Quarterback_gamelogs = Quarterback_gamelogs %>% mutate_all(~ifelse(is.na(.), 0, .))
 Runningback_gamelogs = Runningback_gamelogs %>% mutate_all(~ifelse(is.na(.), 0, .))
@@ -147,10 +151,10 @@ Offensive_gamelog_Combined = left_join(Offensive_gamelog_Combined, Offensive_gam
 Offensive_gamelog_Combined = Offensive_gamelog_Combined %>%
   mutate_if(~!is.list(.), ~ifelse(is.na(.), 0, .))
 ```
-During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, a scoring for each game is made by the NFL of the QB performance called passer rating. 
+  During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, a scoring for each game is made by the NFL of the QB performance called passer rating. 
 
-The following code creates the passer rating. It incorporates succesful passing percentage, yards per pass, touchdowns per pass and interceptions per pass. Scores are between 0 and 158.3 
-```{r Passer rating}
+  The following code creates the passer rating. It incorporates successful passing percentage, yards per pass, touchdowns per pass and interceptions per pass. Scores are between 0 and 158.3 
+```{r Passer rating, echo=TRUE}
 #Create original passer rating function
 calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
   
@@ -160,7 +164,7 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
   c = (TD / ATT) * 20
   d = 2.375 - ((INT / ATT) * 25)
   
-  # Ensure that a,b,c&d are below 2.375
+  # Ensure that a,b,c&d are below 2.375 and above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -177,11 +181,11 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
 }
 ```
 
-
-```{r Passer rating2.0}
+  Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0
+```{r Passer rating2.0, echo=TRUE}
+#Create an improved passer rating function
 calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
-  
-  # Calculate the seven components of the passer rating
+  # Calculate the seven components of the passer rating2.0
   a = ((COMP / ATT) - 0.3) * 5
   b = ((YDS / ATT) - 3) * 0.25
   c = (TD / ATT) * 20
@@ -190,7 +194,7 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   f = ifelse(RUSH == 0, 0, ((R.YDS / RUSH) - 3) * 0.25)
   g = 2.375 - ((FUMB/ATT)*3 + (FUMB.L/ATT)*22)
   
-  # Ensure that a,b,c&d are below 2.375
+  # Ensure that a,b,c & d are below 2.375, f is below 1 and that everything is above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -203,8 +207,8 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   f = pmax(f,0)
   g = pmax(g,0)
   
-  # Calculate the passer rating
-  passer_rating = ((a + b + c + d + e + f + g) / 8.4) * 100
+  # Calculate the passer rating2.0
+  passer_rating2.0 = ((a + b + c + d + e + f + g) / 8.4) * 100
   
   return(passer_rating2.0)
 }
@@ -317,7 +321,8 @@ Career_stats = Quarterback_gamelogs %>%
 
 Career_stats$Wins[is.na(Career_stats$Wins)] = 0
 Career_stats$WinPercentage = floor(Career_stats$Wins/Career_stats$Amount_of_games *100)
-Career_stats$Passer.Rating = calculate_passer_rating(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints, Career_stats$Sacks, Career_stats$Sacked.Yards.Lost, Career_stats$Rushing.Attempts, Career_stats$Rushing.Yards, Career_stats$Fumbles, Career_stats$Fumbles.Lost)
+Career_stats$Passer.Rating = calculate_passer_rating(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints)
+Career_stats$Passer.Rating2.0 = calculate_passer_rating2.0(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints, Career_stats$Sacks, Career_stats$Sacked.Yards.Lost, Career_stats$Rushing.Attempts, Career_stats$Rushing.Yards, Career_stats$Fumbles, Career_stats$Fumbles.Lost)
 
 Career_stats$games_group = cut(Career_stats$Amount_of_games, 
                         breaks = c(-Inf, 10, 150, Inf),
