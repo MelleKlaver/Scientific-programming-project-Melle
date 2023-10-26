@@ -3,7 +3,7 @@ title: "NFL database"
 output: html_document
 date: "2023-09-21"
 ---
-During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in the NFL. I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
+During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in american football in the NFL(official national league of the US). I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -147,14 +147,12 @@ Offensive_gamelog_Combined = left_join(Offensive_gamelog_Combined, Offensive_gam
 Offensive_gamelog_Combined = Offensive_gamelog_Combined %>%
   mutate_if(~!is.list(.), ~ifelse(is.na(.), 0, .))
 ```
-During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, 
+During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, a scoring for each game is made by the NFL of the QB performance called passer rating. 
 
-
-The following code creates a passer rating. This is a score developed by the NFL to evaluate how well a QB plays during a game. It 
+The following code creates the passer rating. It incorporates succesful passing percentage, yards per pass, touchdowns per pass and interceptions per pass. Scores are between 0 and 158.3 
 ```{r Passer rating}
-#The following code creates a passer rating. This is a score developed by the NFL to evaluate how well a QB played during a game. It 
 #Create original passer rating function
-calculate_passer_rating <- function(COMP, ATT, YDS, TD, INT) {
+calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
   
   # Calculate the four components of the passer rating
   a = ((COMP / ATT) - 0.3) * 5
@@ -177,15 +175,11 @@ calculate_passer_rating <- function(COMP, ATT, YDS, TD, INT) {
   
   return(passer_rating)
 }
-
-Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
-Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
-
 ```
 
 
 ```{r Passer rating2.0}
-calculate_passer_rating = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
+calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
   
   # Calculate the seven components of the passer rating
   a = ((COMP / ATT) - 0.3) * 5
@@ -212,13 +206,17 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R
   # Calculate the passer rating
   passer_rating = ((a + b + c + d + e + f + g) / 8.4) * 100
   
-  return(passer_rating)
+  return(passer_rating2.0)
 }
-
-Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints, Quarterback_gamelogs$Sacks, Quarterback_gamelogs$Sacked.Yards.Lost, Quarterback_gamelogs$Rushing.Attempts, Quarterback_gamelogs$Rushing.Yards, Quarterback_gamelogs$Fumbles, Quarterback_gamelogs$Fumbles.Lost)
-
 ```
 
+```{r Calculating passer rating}
+Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
+Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
+
+Quarterback_gamelogs$Passer.Rating2.0 = calculate_passer_rating2.0(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints, Quarterback_gamelogs$Sacks, Quarterback_gamelogs$Sacked.Yards.Lost, Quarterback_gamelogs$Rushing.Attempts, Quarterback_gamelogs$Rushing.Yards, Quarterback_gamelogs$Fumbles, Quarterback_gamelogs$Fumbles.Lost)
+Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints, Offensive_gamelog_Combined$QB_Sacks, Offensive_gamelog_Combined$QB_Sacked.Yards.Lost, Offensive_gamelog_Combined$QB_Rushing.Attempts, Offensive_gamelog_Combined$QB_Rushing.Yards, Offensive_gamelog_Combined$QB_Fumbles, Offensive_gamelog_Combined$QB_Fumbles.Lost)
+```
 
 
 ```{r Best Age Quarterback, warning=FALSE}
