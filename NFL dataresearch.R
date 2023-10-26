@@ -8,7 +8,7 @@ library(tidyr)
 library(ggplot2)
 
 #Setting up the data and importing the files
-setwd("C:/Users/MK122/OneDrive/Bureaublad/School/Systems Biology/Scientific programming/NFL database")
+setwd("C:/Users/MK122/OneDrive/Bureaublad/School/Systems Biology/Scientific programming/Final skills session/Git/Scientific-programming-project-Melle")
 Quarterback_gamelogs = read.csv("Game_Logs_Quarterback.csv")
 Basic_stats = read.csv("Basic_stats.csv")
 Runningback_gamelogs = read.csv("Game_Logs_Runningback.csv")
@@ -197,12 +197,12 @@ print(correlations)
 
 
 #Regression results offense
-regression_results_Offense <- data.frame()
-# Loop through variable pairs
+regression_results_Offense = data.frame()
+# Create a loop for all statistics in the offense that might have an effect on offensive production
 Stats_of_Interest = c(9:20,22:31,33:42,44:51)
 for (i in Stats_of_Interest) {  
-  DV <- "Offensive.Points"    
-  IV <- names(Offensive_gamelog_Combined)[i] 
+  DV = "Offensive.Points"    
+  IV = names(Offensive_gamelog_Combined)[i] 
   
   # Fit the regression model
   model <- lm(paste(DV, "~", IV), data = Offensive_gamelog_Combined)
@@ -214,13 +214,15 @@ for (i in Stats_of_Interest) {
   adj_r_squared <- summary(model)$adj.r.squared
   
   # Add results to the dataframe
-  result_row <- data.frame(DV, IV, intercept, coefficient, p_value, adj_r_squared)
+  result_row <- data.frame(IV, intercept, coefficient, p_value, adj_r_squared)
   regression_results_Offense <- rbind(regression_results_Offense, result_row)
 }
 
-# Print or analyze the regression results
+# Round, order and print the regression results
+regression_results_Offense$intercept = round(regression_results_Offense$intercept, digits = 3)
+regression_results_Offense$coefficient = round(regression_results_Offense$coefficient, digits = 3)
 regression_results_Offense$adj_r_squared = round(regression_results_Offense$adj_r_squared, digits = 3)
-regression_results_Offense <- regression_results_Offense[order(-regression_results_Offense$adj_r_squared), ]
+regression_results_Offense = regression_results_Offense[order(-regression_results_Offense$adj_r_squared), ]
 print(regression_results_Offense)
 
 # Create a bar chart using ggplot2

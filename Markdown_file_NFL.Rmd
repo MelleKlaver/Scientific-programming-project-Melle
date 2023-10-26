@@ -3,7 +3,7 @@ title: "NFL database"
 output: html_document
 date: "2023-09-21"
 ---
-  During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in american football in the NFL(official national league of the US). I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
+During the scientific programming project I will do a statistical analysis on the performance of Quarterbacks(QB) in american football in the NFL(official national league of the US). I will look at what effect age has on performance and if there are significant differences in QB-play between generation. Furthermore, I will look at what stats across the entire offense are most important in determining how productive the offense is. Lastly, I will also create and evaluate a function that improves the current rating used to evaluate QB's. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -151,9 +151,9 @@ Offensive_gamelog_Combined = left_join(Offensive_gamelog_Combined, Offensive_gam
 Offensive_gamelog_Combined = Offensive_gamelog_Combined %>%
   mutate_if(~!is.list(.), ~ifelse(is.na(.), 0, .))
 ```
-  During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, a scoring for each game is made by the NFL of the QB performance called passer rating. 
+During a down, a lot of things can happen. QB can typically do one of 3 things. Throw the ball to Wide Receiver(WR) to attempt a pass, give the ball to the Runningback(RB) who will try to rush the ball forward, or rush the ball themselves. When the ball is thrown it can be intercepted by the defense of the opposing team. Furthermore whenever the QB gets tackled before getting the ball out it is called a sack. Lastly when any player on the field looses the ball it is called a fumble which can be recovered by both the defense and the offense. Based on these numbers, a scoring for each game is made by the NFL of the QB performance called passer rating. 
 
-  The following code creates the passer rating. It incorporates successful passing percentage, yards per pass, touchdowns per pass and interceptions per pass. Scores are between 0 and 158.3 
+The following code creates the passer rating. It incorporates successful passing percentage, yards per pass, touchdowns per pass and interceptions per pass. Scores are between 0 and 158.3 
 ```{r Passer rating, echo=TRUE}
 #Create original passer rating function
 calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
@@ -181,7 +181,9 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
 }
 ```
 
-  Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0
+
+
+Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0. Scores are of similar spread and are between 0 and 163.2
 ```{r Passer rating2.0, echo=TRUE}
 #Create an improved passer rating function
 calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
@@ -215,11 +217,48 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
 ```
 
 ```{r Calculating passer rating}
+#The following code just uses the functions to calculate passer rating and passer rating2.0 for both the Quarterback_gamelogs and the Offensive_gamelog_Combined
 Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
 Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
 
 Quarterback_gamelogs$Passer.Rating2.0 = calculate_passer_rating2.0(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints, Quarterback_gamelogs$Sacks, Quarterback_gamelogs$Sacked.Yards.Lost, Quarterback_gamelogs$Rushing.Attempts, Quarterback_gamelogs$Rushing.Yards, Quarterback_gamelogs$Fumbles, Quarterback_gamelogs$Fumbles.Lost)
 Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints, Offensive_gamelog_Combined$QB_Sacks, Offensive_gamelog_Combined$QB_Sacked.Yards.Lost, Offensive_gamelog_Combined$QB_Rushing.Attempts, Offensive_gamelog_Combined$QB_Rushing.Yards, Offensive_gamelog_Combined$QB_Fumbles, Offensive_gamelog_Combined$QB_Fumbles.Lost)
+```
+
+```{r Regression full offense}
+# In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
+regression_results_Offense = data.frame()
+# Create a loop for all statistics in the offense that might have an effect on offensive production
+Stats_of_Interest = c(9:20,22:31,33:42,44:51)
+for (i in Stats_of_Interest) {  
+  DV = "Offensive.Points"    
+  IV = names(Offensive_gamelog_Combined)[i] 
+  
+  # Fit the regression model
+  model = lm(paste(DV, "~", IV), data = Offensive_gamelog_Combined)
+  
+  # Extract relevant information
+  intercept = coef(model)[1]
+  coefficient = coef(model)[2]
+  p_value = summary(model)$coefficients[2, 4]
+  adj_r2 = summary(model)$adj.r.squared
+  
+  # Add results to the dataframe
+  result_row = data.frame(IV, coefficient, intercept, p_value, adj_r2)
+  regression_results_Offense = rbind(regression_results_Offense, result_row)
+}
+
+# Round, order and print the regression results
+regression_results_Offense$intercept = round(regression_results_Offense$intercept, digits = 3)
+regression_results_Offense$coefficient = round(regression_results_Offense$coefficient, digits = 3)
+regression_results_Offense$adj_r2 = round(regression_results_Offense$adj_r2, digits = 3)
+regression_results_Offense = regression_results_Offense[order(-regression_results_Offense$adj_r2), ]
+print(regression_results_Offense, row.names=FALSE)
+# Create a bar chart using ggplot2
+ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = adj_r2)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Variables", y = "Adj_r_squared", title = "What stat is the best predictor for offensive output") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
