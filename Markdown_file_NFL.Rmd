@@ -103,14 +103,14 @@ Offensive_gamelog_QB = Quarterback_gamelogs %>%
   group_by(Year, Week, Opponent, Outcome, Home.or.Away, Score, Offensive.Points) %>%
   summarize(
     Player.ID = paste(Player.Id, collapse = " + "),
-    Age = mean(Age),
     across(Column_names_QB,sum),
+    Age = mean(Age),
   ) %>%
   ungroup()
 
 #The following code adds QB_ to the column names. 
 Column_names_QB = paste("QB_", names(Offensive_gamelog_QB)[8:21], sep = "")
-names(Offensive_gamelog_QB)[8:20] = Column_names_QB
+names(Offensive_gamelog_QB)[8:21] = Column_names_QB
 
 #Does the same for Runningback
 Offensive_gamelog_RB = Runningback_gamelogs %>%
@@ -256,7 +256,7 @@ regression_results_Offense$intercept = round(regression_results_Offense$intercep
 regression_results_Offense$coefficient = round(regression_results_Offense$coefficient, digits = 3)
 regression_results_Offense$adj_r2 = round(regression_results_Offense$adj_r2, digits = 3)
 regression_results_Offense = regression_results_Offense[order(-regression_results_Offense$adj_r2), ]
-print(regression_results_Offense, row.names=FALSE)
+knitr::kable(regression_results_Offense, row.names = FALSE, format = "markdown")
 # Create a bar chart using ggplot2
 ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = adj_r2)) +
   geom_bar(stat = "identity", fill = "blue") +
@@ -267,7 +267,7 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = a
 So from the results it is clear that the QB has the highest influence on the offensive output. I furthered the analysis by looking at the age at which 
 ```{r Best Age Quarterback}
 #The following chooses the stats that we want to compare across ages 
-Age_stats_Columns_QB = c(15,17,20,21,23,31:33)
+Age_stats_Columns_QB = c(15,17,20,21,23,31)
 Age_stats_Columns_QB = colnames(Quarterback_gamelogs[Age_stats_Columns_QB])
 
 #This code creates a dataframe in which the amount of average stats of each quarterback of a certain age is represented. Age groups with less than 100 games are excluded as that is a to small sample size
@@ -287,7 +287,6 @@ plot = ggplot(data = Age_stats_QB, aes(x = Age)) +
   geom_line(aes(y = Rushing.Attempts, color = "Rushing Attempts"), linetype = "solid") +
   geom_line(aes(y = Passes.Attempted / 10, color = "Passes Attempted"), linetype = "solid") +
   geom_line(aes(y = Offensive.Points / 10, color = "Offensive Points"), linetype = "solid") +
-  geom_line(aes(y = Passer.Rating2.0 / 100, color = "Passer.Rating2.0"), linetype = "solid") +
   labs(x = "Age", title = "Quarterback Statistics")
 
 #Adds a y-axis on both the left and the right. The left Y-axis corresponds with the amount of Ints, Sacks and Rushing attempts. The right corresponds with the passes attempted and the offensive points.
@@ -303,7 +302,7 @@ plot = plot + scale_x_continuous(breaks = Age_stats_QB$Age[seq(1, nrow(Age_stats
                                   labels = paste(Age_stats_QB$Age[seq(1, nrow(Age_stats_QB), by = 4)], "(", Age_stats_QB$Games[seq(1, nrow(Age_stats_QB), by = 5)], " games)"))
 
 #Creates a functioning legend
-custom_colors = c("Ints" = "blue", "Rushing Attempts" = "red", "Sacks" = "green", "Passes Attempted" = "purple", "Offensive Points" = "orange", "Passer.Rating2.0" = "black" )
+custom_colors = c("Ints" = "blue", "Rushing Attempts" = "red", "Sacks" = "green", "Passes Attempted" = "purple", "Offensive Points" = "orange")
 plot = plot + scale_color_manual(values = custom_colors)
 
 plot = plot + theme(legend.position="top")
@@ -313,33 +312,38 @@ print(plot)
 
 
 ```{r Regression best age QB}
-regression_results_Age <- data.frame()
+regression_results_Age = data.frame()
 # Loop through variable pairs
 rows_to_regress = c(7,10,13,14,16)
 for (i in rows_to_regress) {  
-  DV <- names(Offensive_gamelog_QB)[i]  
-  IV <- "QB_Age"  
+  DV = names(Offensive_gamelog_QB)[i]  
+  IV = "QB_Age"  
   
   # Fit the regression model
-  model <- lm(paste(DV, "~", IV), data = Offensive_gamelog_QB)
+  model = lm(paste(DV, "~", IV), data = Offensive_gamelog_QB)
   
   # Extract relevant information
-  intercept <- coef(model)[1]
-  coefficient <- coef(model)[2]
-  p_value <- summary(model)$coefficients[2, 4]
-  adj_r_2 <- summary(model)$adj.r.squared
+  intercept = coef(model)[1]
+  coefficient = coef(model)[2]
+  p_value = summary(model)$coefficients[2, 4]
+  adj_r2 = summary(model)$adj.r.squared
   
   # Add results to the dataframe
-  result_row <- data.frame(DV, IV, intercept, coefficient, p_value, adj_r_2)
-  regression_results_Age <- rbind(regression_results_Age, result_row)
+  result_row = data.frame(DV, intercept, coefficient, p_value, adj_r2)
+  regression_results_Age = rbind(regression_results_Age, result_row)
 }
 
 # Print or analyze the regression results
-print(regression_results_Age)
-
+regression_results_Age$intercept = round(regression_results_Age$intercept, digits = 3)
+regression_results_Age$coefficient = round(regression_results_Age$coefficient, digits = 3)
+regression_results_Age$adj_r2 = round(regression_results_Age$adj_r2, digits = 3)
+regression_results_Age = regression_results_Age[order(-regression_results_Age$adj_r2), ]
+knitr::kable(regression_results_Age, row.names = FALSE, format = "markdown")
 ```
 
 What we can gather from this data is that aging quarterbacks typically tend to get better over time creating more offensive output per game. They do this by an increase of their passing attempts and a decrease in their rushing attempts. This can be explained by the risk of injury that rushing attempts have which does not suit an older QB
+
+Lastly I was interested in which QB's have been the most successful over their entire career. Therefore, I've created the following scatter plot which compares passer rating to win percentage
 
 ```{r Career Stats}
 #Creates the player stats
@@ -373,12 +377,23 @@ Career_stats$games_group = cut(Career_stats$Amount_of_games,
                         labels = c("Below 10", "10-150", "Above 150"))
 color_mapping = c("Below 10" = "black", "10-150" = "blue", "Above 150" = "red")
 
-ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating, color = games_group)) +
+ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating2.0, color = games_group)) +
   geom_point() +
   scale_color_manual(values = color_mapping) +
-  labs(x = "WinPercentage", y = "Passer.Rating") +
-  ggtitle("Scatter Plot of Passer Rating vs. Win Percentage")
+  labs(x = "WinPercentage", y = "Passer.Rating2.0") +
+  ggtitle("Scatter Plot of Passer Rating2.0 vs. Win Percentage")
+
+filtered_qbs <- Career_stats %>% filter(Passer.Rating2.0 > 95, WinPercentage > 60)
+
+# Select the columns of interest
+result_table <- filtered_qbs %>% select(Name, WinPercentage, Passer.Rating2.0, Amount_of_games)
+rownames(result_table) <- NULL
+
+# Print the result table without column types
+knitr::kable(result_table, format = "markdown")
 ```
+
+
 
 ```{r Biplot}
 # Divide the variables of interest by Amount_of_games
