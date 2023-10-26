@@ -103,12 +103,13 @@ Offensive_gamelog_QB = Quarterback_gamelogs %>%
   group_by(Year, Week, Opponent, Outcome, Home.or.Away, Score, Offensive.Points) %>%
   summarize(
     Player.ID = paste(Player.Id, collapse = " + "),
+    Age = mean(Age),
     across(Column_names_QB,sum),
   ) %>%
   ungroup()
 
 #The following code adds QB_ to the column names. 
-Column_names_QB = paste("QB_", names(Offensive_gamelog_QB)[8:20], sep = "")
+Column_names_QB = paste("QB_", names(Offensive_gamelog_QB)[8:21], sep = "")
 names(Offensive_gamelog_QB)[8:20] = Column_names_QB
 
 #Does the same for Runningback
@@ -225,11 +226,13 @@ Quarterback_gamelogs$Passer.Rating2.0 = calculate_passer_rating2.0(Quarterback_g
 Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints, Offensive_gamelog_Combined$QB_Sacks, Offensive_gamelog_Combined$QB_Sacked.Yards.Lost, Offensive_gamelog_Combined$QB_Rushing.Attempts, Offensive_gamelog_Combined$QB_Rushing.Yards, Offensive_gamelog_Combined$QB_Fumbles, Offensive_gamelog_Combined$QB_Fumbles.Lost)
 ```
 
+
+I perform a regression on the full offense
 ```{r Regression full offense}
 # In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
 regression_results_Offense = data.frame()
 # Create a loop for all statistics in the offense that might have an effect on offensive production
-Stats_of_Interest = c(9:20,22:31,33:42,44:51)
+Stats_of_Interest = c(9:20,23:32,34:43,45:52)
 for (i in Stats_of_Interest) {  
   DV = "Offensive.Points"    
   IV = names(Offensive_gamelog_Combined)[i] 
@@ -261,10 +264,10 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = a
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-
-```{r Best Age Quarterback, warning=FALSE}
+So from the results it is clear that the QB has the highest influence on the offensive output. I furthered the analysis by looking at the age at which 
+```{r Best Age Quarterback}
 #The following chooses the stats that we want to compare across ages 
-Age_stats_Columns_QB = c(15,17,20,21,23,31,32)
+Age_stats_Columns_QB = c(15,17,20,21,23,31:33)
 Age_stats_Columns_QB = colnames(Quarterback_gamelogs[Age_stats_Columns_QB])
 
 #This code creates a dataframe in which the amount of average stats of each quarterback of a certain age is represented. Age groups with less than 100 games are excluded as that is a to small sample size
@@ -284,6 +287,7 @@ plot = ggplot(data = Age_stats_QB, aes(x = Age)) +
   geom_line(aes(y = Rushing.Attempts, color = "Rushing Attempts"), linetype = "solid") +
   geom_line(aes(y = Passes.Attempted / 10, color = "Passes Attempted"), linetype = "solid") +
   geom_line(aes(y = Offensive.Points / 10, color = "Offensive Points"), linetype = "solid") +
+  geom_line(aes(y = Passer.Rating2.0 / 100, color = "Passer.Rating2.0"), linetype = "solid") +
   labs(x = "Age", title = "Quarterback Statistics")
 
 #Adds a y-axis on both the left and the right. The left Y-axis corresponds with the amount of Ints, Sacks and Rushing attempts. The right corresponds with the passes attempted and the offensive points.
@@ -299,7 +303,7 @@ plot = plot + scale_x_continuous(breaks = Age_stats_QB$Age[seq(1, nrow(Age_stats
                                   labels = paste(Age_stats_QB$Age[seq(1, nrow(Age_stats_QB), by = 4)], "(", Age_stats_QB$Games[seq(1, nrow(Age_stats_QB), by = 5)], " games)"))
 
 #Creates a functioning legend
-custom_colors = c("Ints" = "blue", "Rushing Attempts" = "red", "Sacks" = "green", "Passes Attempted" = "purple", "Offensive Points" = "orange")
+custom_colors = c("Ints" = "blue", "Rushing Attempts" = "red", "Sacks" = "green", "Passes Attempted" = "purple", "Offensive Points" = "orange", "Passer.Rating2.0" = "black" )
 plot = plot + scale_color_manual(values = custom_colors)
 
 plot = plot + theme(legend.position="top")
@@ -309,15 +313,15 @@ print(plot)
 
 
 ```{r Regression best age QB}
-regression_results <- data.frame()
+regression_results_Age <- data.frame()
 # Loop through variable pairs
-rows_to_regress = c(3, 5:8)
+rows_to_regress = c(7,10,13,14,16)
 for (i in rows_to_regress) {  
-  DV <- names(Age_stats_QB)[i]  
-  IV <- "Age"  
+  DV <- names(Offensive_gamelog_QB)[i]  
+  IV <- "QB_Age"  
   
   # Fit the regression model
-  model <- lm(paste(DV, "~", IV), data = Age_stats_QB)
+  model <- lm(paste(DV, "~", IV), data = Offensive_gamelog_QB)
   
   # Extract relevant information
   intercept <- coef(model)[1]
@@ -327,11 +331,12 @@ for (i in rows_to_regress) {
   
   # Add results to the dataframe
   result_row <- data.frame(DV, IV, intercept, coefficient, p_value, adj_r_2)
-  regression_results <- rbind(regression_results, result_row)
+  regression_results_Age <- rbind(regression_results_Age, result_row)
 }
 
 # Print or analyze the regression results
-print(regression_results)
+print(regression_results_Age)
+
 ```
 
 What we can gather from this data is that aging quarterbacks typically tend to get better over time creating more offensive output per game. They do this by an increase of their passing attempts and a decrease in their rushing attempts. This can be explained by the risk of injury that rushing attempts have which does not suit an older QB
