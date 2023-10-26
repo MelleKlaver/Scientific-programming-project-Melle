@@ -193,7 +193,7 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   b = ((YDS / ATT) - 3) * 0.25
   c = (TD / ATT) * 20
   d = 2.375 - ((INT / ATT) * 25)
-  e = ifelse(SACK == 0, 1, 1.000 - ((SACK / ATT) * ((S.YDS / SACK) + 3)))
+  e = ifelse(SACK == 0, 1.18875, 1.18875 - ((SACK / ATT) * (S.YDS / SACK)))
   f = ifelse(RUSH == 0, 0, ((R.YDS / RUSH) - 3) * 0.25)
   g = 2.375 - ((FUMB/ATT)*3 + (FUMB.L/ATT)*22)
   
@@ -206,12 +206,12 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   c = pmax(c,0)
   d = pmax(d, 0)
   e = pmax(e, 0)
-  f = pmin(f,1)
+  f = pmin(f,1.18875)
   f = pmax(f,0)
   g = pmax(g,0)
   
   # Calculate the passer rating2.0
-  passer_rating2.0 = ((a + b + c + d + e + f + g) / 8.4) * 100
+  passer_rating2.0 = ((a + b + c + d + e + f + g) / 9) * 100
   
   return(passer_rating2.0)
 }
@@ -227,8 +227,8 @@ Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offe
 ```
 
 
-I perform a regression on the full offense
-```{r Regression full offense}
+I perform a regression on the full offense Univariate
+```{r Regression full offense univariate}
 # In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
 regression_results_Offense = data.frame()
 # Create a loop for all statistics in the offense that might have an effect on offensive production
@@ -263,6 +263,44 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = a
   labs(x = "Variables", y = "Adj_r_squared", title = "What stat is the best predictor for offensive output") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+
+Now I try the same but with a multivariate approach
+```{r Regression full offense multivariate}
+dependent_variable <- "Offensive.Points"
+independent_variables <- names(Offensive_gamelog_Combined)[Stats_of_Interest]
+
+# Construct the formula for multivariate regression
+formula <- as.formula(paste(dependent_variable, "~", paste(independent_variables, collapse = " + ")))
+
+# Fit the multivariate linear regression model
+model <- lm(formula, data = Offensive_gamelog_Combined)
+
+# Extract relevant information
+coefficients <- coef(model)[-1]  # Exclude the intercept
+p_values <- summary(model)$coefficients[-1, 4]
+adj_r2 <- summary(model)$adj.r.squared
+
+# Create a summary dataframe
+result_summary <- data.frame(
+  IV = independent_variables,
+  Coefficient = coefficients,
+  P_Value = p_values,
+  Adj_R_Squared = adj_r2  # Changed to match the variable name you used later
+)
+
+# Round, order, and print the regression results
+result_summary$Coefficient <- round(result_summary$Coefficient, digits = 3)
+result_summary$Adj_R_Squared <- round(result_summary$Adj_R_Squared, digits = 3)
+result_summary <- result_summary[order(-result_summary$P_Value), ]
+knitr::kable(result_summary, row.names = FALSE, format = "markdown")
+
+ggplot(head(result_summary, 10), aes(x = reorder(IV, -Adj_R_Squared), y = Adj_R_Squared)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Variables", y = "Adj_r_squared", title = "What stat is the best predictor for offensive output") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
 
 So from the results it is clear that the QB has the highest influence on the offensive output. I furthered the analysis by looking at the age at which 
 ```{r Best Age Quarterback}
