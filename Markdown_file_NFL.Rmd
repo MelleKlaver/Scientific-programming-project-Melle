@@ -537,9 +537,9 @@ color_mapping2 <- c(
 )
 
 color_mapping3 <- c(             
-  "Less then 10" = "blue",      # Less then 10
-  "10-100" = "green",           # between 10 and 100
-  "> 100" = "purple"            # More than 100
+  "Less then 70" = "blue",      # Less then 10
+  "70-90" = "green",           # between 10 and 100
+  "> 90" = "purple"            # More than 100
 )
 
 
@@ -558,7 +558,7 @@ pc1_pc2_plot_Generation = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = P
 pca_data_Games <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Amount_of_games = Career_stats_average$Amount_of_games)
 
 
-pc1_pc2_plot_PasserRating = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Amount_of_games_Category)) +
+pc1_pc2_plot_Games = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Amount_of_games_Category)) +
   geom_point() +
   labs(x = "PC1", y = "PC2", color = "Amount_of_games") +
   ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
@@ -566,10 +566,10 @@ pc1_pc2_plot_PasserRating = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y =
 
 pca_data_Passer.Rating2.0 <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Passer.Rating2.0 = Career_stats_average$Passer.Rating2.0)
 
-pc1_pc2_plot_Games = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Passer.Rating2.0_Category)) +
+pc1_pc2_plot_Passer.Rating2.0 = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Passer.Rating2.0_Category)) +
   geom_point() +
   labs(x = "PC1", y = "PC2", color = "Passer.Rating2.0") +
-  ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
+  ggtitle("PCA: PC1 vs. PC2 seperated by passer rating") +
   scale_color_manual(values = color_mapping3)  
 
 # Print or visualize the PCA results and plots
@@ -577,7 +577,7 @@ print(pca_result)
 print(scree_plot)
 print(pc1_pc2_plot_Generation)
 print(pc1_pc2_plot_Games)
-print(pc1_pc2_plot_PasserRating)
+print(pc1_pc2_plot_Passer.Rating2.0)
 
 
 # Create a biplot
