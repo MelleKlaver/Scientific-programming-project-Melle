@@ -267,6 +267,7 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = a
 
 Now I try the same but with a multivariate approach
 ```{r Regression full offense multivariate}
+# In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
 dependent_variable <- "Offensive.Points"
 independent_variables <- names(Offensive_gamelog_Combined)[Stats_of_Interest]
 
@@ -279,6 +280,7 @@ model <- lm(formula, data = Offensive_gamelog_Combined)
 # Extract relevant information
 coefficients <- coef(model)[-1]  # Exclude the intercept
 p_values <- summary(model)$coefficients[-1, 4]
+intercept = summary(model)
 adj_r2 <- summary(model)$adj.r.squared
 
 # Create a summary dataframe
@@ -286,18 +288,41 @@ result_summary <- data.frame(
   IV = independent_variables,
   Coefficient = coefficients,
   P_Value = p_values,
-  Adj_R_Squared = adj_r2  # Changed to match the variable name you used later
+  adj_r2 = adj_r2  # Changed to match the variable name you used later
 )
 
-# Round, order, and print the regression results
+# Initialize a vector to store the part R-squared values
+part_r_squared <- numeric(length(independent_variables))
+
+# Loop through the independent variables and calculate part R-squared
+for (i in 1:length(independent_variables)) {
+  IV_to_remove <- independent_variables[i]
+  
+  # Fit the model without the current variable
+  reduced_formula <- as.formula(paste(dependent_variable, "~", paste(setdiff(independent_variables, IV_to_remove), collapse = " + ")))
+  reduced_model <- lm(reduced_formula, data = Offensive_gamelog_Combined)
+  
+  # Calculate the change in R-squared when the variable is removed
+  delta_r_squared <- adj_r2 - summary(reduced_model)$r.squared
+  
+  # Calculate the part R-squared for the current variable
+  part_r_squared[i] <- delta_r_squared
+}
+
+# Add part R-squared values to the result_summary dataframe
+result_summary$Part_R_Squared <- part_r_squared
+
+# Round, order, and print the updated regression results
 result_summary$Coefficient <- round(result_summary$Coefficient, digits = 3)
-result_summary$Adj_R_Squared <- round(result_summary$Adj_R_Squared, digits = 3)
-result_summary <- result_summary[order(-result_summary$P_Value), ]
+result_summary$adj_r2 <- round(result_summary$adj_r2, digits = 3)
+result_summary$Part_R_Squared <- round(result_summary$Part_R_Squared, digits = 3)
+result_summary <- result_summary[order(-result_summary$Part_R_Squared), ]
 knitr::kable(result_summary, row.names = FALSE, format = "markdown")
 
-ggplot(head(result_summary, 10), aes(x = reorder(IV, -Adj_R_Squared), y = Adj_R_Squared)) +
+# Create a bar chart to visualize the part R-squared values
+ggplot(head(result_summary, 10), aes(x = reorder(IV, -Part_R_Squared), y = Part_R_Squared)) +
   geom_bar(stat = "identity", fill = "blue") +
-  labs(x = "Variables", y = "Adj_r_squared", title = "What stat is the best predictor for offensive output") +
+  labs(x = "Variables", y = "Part R-squared", title = "Individual Contribution of Variables to Offensive Output") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
@@ -325,7 +350,7 @@ plot = ggplot(data = Age_stats_QB, aes(x = Age)) +
   geom_line(aes(y = Rushing.Attempts, color = "Rushing Attempts"), linetype = "solid") +
   geom_line(aes(y = Passes.Attempted / 10, color = "Passes Attempted"), linetype = "solid") +
   geom_line(aes(y = Offensive.Points / 10, color = "Offensive Points"), linetype = "solid") +
-  labs(x = "Age", title = "Quarterback Statistics")
+  labs(x = "Age", title = "Effect of age on QB play")
 
 #Adds a y-axis on both the left and the right. The left Y-axis corresponds with the amount of Ints, Sacks and Rushing attempts. The right corresponds with the passes attempted and the offensive points.
 plot = plot + scale_y_continuous(
@@ -386,7 +411,7 @@ Lastly I was interested in which QB's have been the most successful over their e
 ```{r Career Stats}
 #Creates the player stats
 Career_stats = Quarterback_gamelogs %>%
-  group_by(Name) %>%
+  group_by(Name, Birthyear) %>%
   summarise(
     Wins = sum(Outcome == "W"),
     Amount_of_games = n(),
@@ -421,10 +446,12 @@ ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating2.0, color = games_
   labs(x = "WinPercentage", y = "Passer.Rating2.0") +
   ggtitle("Scatter Plot of Passer Rating2.0 vs. Win Percentage")
 
-filtered_qbs <- Career_stats %>% filter(Passer.Rating2.0 > 95, WinPercentage > 60)
+filtered_qbs <- Career_stats %>% filter(Passer.Rating2.0 > 90, WinPercentage > 60, Amount_of_games > 50)
 
 # Select the columns of interest
-result_table <- filtered_qbs %>% select(Name, WinPercentage, Passer.Rating2.0, Amount_of_games)
+result_table <- filtered_qbs %>% select(Name, WinPercentage, Passer.Rating2.0, Amount_of_games) %>%
+                                 arrange(desc(Passer.Rating2.0)) 
+
 rownames(result_table) <- NULL
 
 # Print the result table without column types
@@ -448,15 +475,32 @@ Career_stats_average <- Career_stats %>%
     Fumbles.Lost = Fumbles.Lost / Amount_of_games,
     Ints = Ints / Amount_of_games,
     TD.Passes = TD.Passes / Amount_of_games,
-    Offensive.Points = Offensive.Points / Amount_of_games
+    Generation = Birthyear + 28 #average age of a QB
   )
 
 
 
+Career_stats_average$Generation_Category <- cut(
+  Career_stats_average$Generation,
+  breaks = c(1960, 1980, 2000, Inf),
+  labels = c("1960-1980", "1980-2000", "> 2000")
+)
 
-# Select the numeric variables for PCA (excluding non-numeric and response variables)
+Career_stats_average$Amount_of_games_Category <- cut(
+  Career_stats_average$Amount_of_games,
+  breaks = c(-Inf, 10, 100, Inf),
+  labels = c("Less then 10", "10-100", "> 100")
+)
+
+Career_stats_average$Passer.Rating2.0_Category <- cut(
+  Career_stats_average$Passer.Rating2.0,
+  breaks = c(-Inf, 70, 90, Inf),
+  labels = c("Less then 70", "70-90", "> 90")
+)
+
+## Select the numeric variables for PCA (excluding non-numeric and response variables)
 variables_of_interest <- Career_stats_average[, c(
- "Passes.Completed", "Passes.Attempted",
+  "Passes.Completed", "Passes.Attempted",
   "Sacks", "Rushing.Attempts", "Fumbles", "Ints", "TD.Passes",
   "Offensive.Points"
 )]
@@ -479,16 +523,62 @@ scree_plot <- ggplot() +
   labs(x = "Principal Component", y = "Variance Explained") +
   ggtitle("Scree Plot")
 
-# Plot of the first two principal components
-pc1_pc2_plot <- ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2)) +
+
+color_mapping <- c(             
+  "1960-1980" = "blue",         # Between 1960 and 1980
+  "1980-2000" = "green",        # Between 1980 and 2000
+  "> 2000" = "purple"           # Later than 2000
+)
+
+color_mapping2 <- c(             
+  "Less then 10" = "blue",      # Less then 10
+  "10-100" = "green",           # between 10 and 100
+  "> 100" = "purple"            # More than 100
+)
+
+color_mapping3 <- c(             
+  "Less then 10" = "blue",      # Less then 10
+  "10-100" = "green",           # between 10 and 100
+  "> 100" = "purple"            # More than 100
+)
+
+
+pca_data_generation <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Generation = Career_stats_average$Generation)
+
+
+pc1_pc2_plot_Generation = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Generation_Category)) +
   geom_point() +
-  labs(x = "PC1", y = "PC2") +
-  ggtitle("PCA: PC1 vs. PC2")
+  labs(x = "PC1", y = "PC2", color = "Generation") +
+  ggtitle("PCA: PC1 vs. PC2 seperated by generation") +
+  scale_color_manual(values = color_mapping)  
+
+
+
+
+pca_data_Games <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Amount_of_games = Career_stats_average$Amount_of_games)
+
+
+pc1_pc2_plot_PasserRating = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Amount_of_games_Category)) +
+  geom_point() +
+  labs(x = "PC1", y = "PC2", color = "Amount_of_games") +
+  ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
+  scale_color_manual(values = color_mapping2)  
+
+pca_data_Passer.Rating2.0 <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Passer.Rating2.0 = Career_stats_average$Passer.Rating2.0)
+
+pc1_pc2_plot_Games = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Passer.Rating2.0_Category)) +
+  geom_point() +
+  labs(x = "PC1", y = "PC2", color = "Passer.Rating2.0") +
+  ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
+  scale_color_manual(values = color_mapping3)  
 
 # Print or visualize the PCA results and plots
 print(pca_result)
 print(scree_plot)
-print(pc1_pc2_plot)
+print(pc1_pc2_plot_Generation)
+print(pc1_pc2_plot_Games)
+print(pc1_pc2_plot_PasserRating)
+
 
 # Create a biplot
 biplot(pca_result, scale = 0, col = c("white", "black"))

@@ -76,11 +76,12 @@ Offensive_gamelog_QB = Quarterback_gamelogs %>%
   group_by(Year, Week, Opponent, Outcome, Home.or.Away, Score, Offensive.Points) %>%
   summarize(
     Player.ID = paste(Player.Id, collapse = " + "),
-    across(Column_names_QB,sum),
+    across(Column_names_QB, sum),
+    Age = mean(Age),
   ) %>%
   ungroup()
-Column_names_QB = paste("QB_", names(Offensive_gamelog_QB)[8:20], sep = "")
-names(Offensive_gamelog_QB)[8:20] = Column_names_QB
+Column_names_QB = paste("QB_", names(Offensive_gamelog_QB)[8:21], sep = "")
+names(Offensive_gamelog_QB)[8:21] = Column_names_QB
 
 
 Offensive_gamelog_RB = Runningback_gamelogs %>%
@@ -125,7 +126,7 @@ Offensive_gamelog_Combined <- Offensive_gamelog_Combined %>%
 #EVERYTHING ABOVE IS SETUP AND DATA MANIPULATION
 
 #Create original passer rating function
-calculate_passer_rating <- function(COMP, ATT, YDS, TD, INT) {
+calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
   
   # Calculate the four components of the passer rating
   a = ((COMP / ATT) - 0.3) * 5
@@ -133,7 +134,7 @@ calculate_passer_rating <- function(COMP, ATT, YDS, TD, INT) {
   c = (TD / ATT) * 20
   d = 2.375 - ((INT / ATT) * 25)
   
-  # Ensure that a,b,c&d are below 2.375
+  # Ensure that a,b,c&d are below 2.375 and above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -144,7 +145,7 @@ calculate_passer_rating <- function(COMP, ATT, YDS, TD, INT) {
   
   # Calculate the passer rating
   passer_rating = ((a+b+c+d)/6) * 100
-
+  
   
   return(passer_rating)
 }
@@ -155,10 +156,9 @@ Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_
 
 
 
-#Create new passer rating function
-calculate_passer_rating2.0 <- function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
-  
-  # Calculate the four components of the passer rating
+#Create an improved passer rating function
+calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
+  # Calculate the seven components of the passer rating2.0
   a = ((COMP / ATT) - 0.3) * 5
   b = ((YDS / ATT) - 3) * 0.25
   c = (TD / ATT) * 20
@@ -167,7 +167,7 @@ calculate_passer_rating2.0 <- function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUS
   f = ifelse(RUSH == 0, 0, ((R.YDS / RUSH) - 3) * 0.25)
   g = 2.375 - ((FUMB/ATT)*3 + (FUMB.L/ATT)*22)
   
-  # Ensure that a,b,c&d are below 2.375
+  # Ensure that a,b,c & d are below 2.375, f is below 1 and that everything is above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -180,8 +180,8 @@ calculate_passer_rating2.0 <- function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUS
   f = pmax(f,0)
   g = pmax(g,0)
   
-  # Calculate the passer rating
-  passer_rating2.0 = ((a + b + c + d + e + f + g) / 8.5) * 100
+  # Calculate the passer rating2.0
+  passer_rating2.0 = ((a + b + c + d + e + f + g) / 8.4) * 100
   
   return(passer_rating2.0)
 }
@@ -191,15 +191,15 @@ Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offe
 
 #Explorative statistics
 
-Stats_of_Interest = c(9:20,22:31,33:42,44:50)
-correlations <- cor(Offensive_gamelog_Combined$Offensive.Points, Offensive_gamelog_Combined[Stats_of_Interest])
-print(correlations)
+#Stats_of_Interest = c(9:20,22:31,33:42,44:50)
+#correlations <- cor(Offensive_gamelog_Combined$Offensive.Points, Offensive_gamelog_Combined[Stats_of_Interest])
+#print(correlations)
 
 
 #Regression results offense
 regression_results_Offense = data.frame()
 # Create a loop for all statistics in the offense that might have an effect on offensive production
-Stats_of_Interest = c(9:20,22:31,33:42,44:51)
+Stats_of_Interest = c(9:20,23:32,34:43,45:52)
 for (i in Stats_of_Interest) {  
   DV = "Offensive.Points"    
   IV = names(Offensive_gamelog_Combined)[i] 
@@ -248,7 +248,7 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r_squared)
 
 
 #The following chooses the stats that we want to compare across ages 
-Age_stats_Columns_QB = c(15,17,20,21,23,31,32)
+Age_stats_Columns_QB = c(15,17,20,21,23,31)
 Age_stats_Columns_QB = colnames(Quarterback_gamelogs[Age_stats_Columns_QB])
 
 #This code creates a dataframe in which the amount of average stats of each quarterback of a certain age is represented. Age groups with less than 100 games are excluded as that is a to small sample size
@@ -267,7 +267,6 @@ plot = ggplot(data = Age_stats_QB, aes(x = Age)) +
   geom_line(aes(y = Sacks, color = "Sacks"), linetype = "solid") +
   geom_line(aes(y = Rushing.Attempts, color = "Rushing Attempts"), linetype = "solid") +
   geom_line(aes(y = Passes.Attempted / 10, color = "Passes Attempted"), linetype = "solid") +
-  geom_line(aes(y = Offensive.Points / 10, color = "Offensive Points"), linetype = "solid") +
   geom_line(aes(y = Offensive.Points / 10, color = "Offensive Points"), linetype = "solid") +
   labs(x = "Age", title = "Quarterback Statistics")
 
@@ -291,29 +290,29 @@ plot = plot + theme(legend.position="top")
 # Print the plot
 print(plot)
 
-
-regression_results_Age <- data.frame()
+regression_results <- data.frame()
 # Loop through variable pairs
-for (i in 3:8) {  
-  DV <- names(Age_stats_QB)[i]  
-  IV <- "Age"  
+rows_to_regress = c(7,10,13,14,16)
+for (i in rows_to_regress) {  
+  DV <- names(Offensive_gamelog_QB)[i]  
+  IV <- "QB_Age"  
   
   # Fit the regression model
-  model <- lm(paste(DV, "~", IV), data = Age_stats_QB)
+  model <- lm(paste(DV, "~", IV), data = Offensive_gamelog_QB)
   
   # Extract relevant information
   intercept <- coef(model)[1]
   coefficient <- coef(model)[2]
   p_value <- summary(model)$coefficients[2, 4]
-  adj_r_squared <- summary(model)$adj.r.squared
+  adj_r_2 <- summary(model)$adj.r.squared
   
   # Add results to the dataframe
-  result_row <- data.frame(DV, IV, intercept, coefficient, p_value, adj_r_squared)
-  regression_results_Age <- rbind(regression_results_Age, result_row)
+  result_row <- data.frame(DV, IV, intercept, coefficient, p_value, adj_r_2)
+  regression_results <- rbind(regression_results, result_row)
 }
 
 # Print or analyze the regression results
-print(regression_results_Age)
+print(regression_results)
 
 
 #Create Career stats
@@ -339,17 +338,17 @@ Career_stats <- Quarterback_gamelogs %>%
 
 Career_stats$Wins[is.na(Career_stats$Wins)] = 0
 Career_stats$WinPercentage = floor(Career_stats$Wins/Career_stats$Amount_of_games *100)
-Career_stats$Passer.Rating = calculate_passer_rating(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints, Career_stats$Sacks, Career_stats$Sacked.Yards.Lost, Career_stats$Rushing.Attempts, Career_stats$Rushing.Yards, Career_stats$Fumbles, Career_stats$Fumbles.Lost)
+Career_stats$Passer.Rating2.0 = calculate_passer_rating2.0(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints, Career_stats$Sacks, Career_stats$Sacked.Yards.Lost, Career_stats$Rushing.Attempts, Career_stats$Rushing.Yards, Career_stats$Fumbles, Career_stats$Fumbles.Lost)
 
 Career_stats$games_group = cut(Career_stats$Amount_of_games, 
                         breaks = c(-Inf, 10, 150, Inf),
                         labels = c("Below 10", "10-150", "Above 150"))
 color_mapping = c("Below 10" = "black", "10-150" = "blue", "Above 150" = "red")
 
-ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating, color = games_group)) +
+ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating2.0, color = games_group)) +
   geom_point() +
   scale_color_manual(values = color_mapping) +
-  labs(x = "WinPercentage", y = "Passer.Rating") +
+  labs(x = "WinPercentage", y = "Passer.Rating2.0") +
   ggtitle("Scatter Plot of Passer Rating vs. Win Percentage")
 
 
