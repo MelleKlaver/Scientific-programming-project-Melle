@@ -537,8 +537,8 @@ color_mapping2 <- c(
 )
 
 color_mapping3 <- c(             
-  "Less then 70" = "blue",      # Less then 10
-  "70-90" = "green",           # between 10 and 100
+  "Less then 70" = "blue",     # Less then 70
+  "70-90" = "green",           # between 70 and 00
   "> 90" = "purple"            # More than 100
 )
 
