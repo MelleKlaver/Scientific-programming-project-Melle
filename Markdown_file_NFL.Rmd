@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(reshape2)
 ```
 
 ```{r import}
@@ -182,9 +183,7 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
 }
 ```
 
-
-
-Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0. Scores are of similar spread and are between 0 and 163.2
+Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0. Scores are more centered and are between 0 and 158.3 due to the fact that there are more variables that have to be minimized or maximized to create polarizing scores.
 ```{r Passer rating2.0, echo=TRUE}
 #Create an improved passer rating function
 calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
@@ -193,11 +192,11 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   b = ((YDS / ATT) - 3) * 0.25
   c = (TD / ATT) * 20
   d = 2.375 - ((INT / ATT) * 25)
-  e = ifelse(SACK == 0, 1.18875, 1.18875 - ((SACK / ATT) * (S.YDS / SACK)))
+  e = ifelse(SACK == 0, 1.1875, 1.1875 - ((SACK / ATT) * (S.YDS / SACK)))
   f = ifelse(RUSH == 0, 0, ((R.YDS / RUSH) - 3) * 0.25)
   g = 2.375 - ((FUMB/ATT)*3 + (FUMB.L/ATT)*22)
   
-  # Ensure that a,b,c & d are below 2.375, f is below 1 and that everything is above 0
+  # Ensure that a,b,c & d are below 2.375, f is below 1.18875 and that everything is above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -206,7 +205,7 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   c = pmax(c,0)
   d = pmax(d, 0)
   e = pmax(e, 0)
-  f = pmin(f,1.18875)
+  f = pmin(f,1.1875)
   f = pmax(f,0)
   g = pmax(g,0)
   
@@ -217,36 +216,66 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
 }
 ```
 
-```{r Calculating passer rating}
-#The following code just uses the functions to calculate passer rating and passer rating2.0 for both the Quarterback_gamelogs and the Offensive_gamelog_Combined
+Underneath is a barchart that shows the distribution of passer rating scores
+
+```{r  passer_rating calculation and bar chart}
+# Calculates the passer rating for each QB in a game
 Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
+
+# Calculates the Passer rating for all plays made by a QB in a game
 Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
 
+# Calculates the passer rating 2.0 for each QB in a game
 Quarterback_gamelogs$Passer.Rating2.0 = calculate_passer_rating2.0(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints, Quarterback_gamelogs$Sacks, Quarterback_gamelogs$Sacked.Yards.Lost, Quarterback_gamelogs$Rushing.Attempts, Quarterback_gamelogs$Rushing.Yards, Quarterback_gamelogs$Fumbles, Quarterback_gamelogs$Fumbles.Lost)
+
+#Calculates the Passer rating 2.0 for all plays made by a QB in a game
 Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints, Offensive_gamelog_Combined$QB_Sacks, Offensive_gamelog_Combined$QB_Sacked.Yards.Lost, Offensive_gamelog_Combined$QB_Rushing.Attempts, Offensive_gamelog_Combined$QB_Rushing.Yards, Offensive_gamelog_Combined$QB_Fumbles, Offensive_gamelog_Combined$QB_Fumbles.Lost)
+
+#Creating a bar chart
+
+#Dividing the passer ratings into bins
+bin_width = 5
+bin_breaks = c(0, seq(5, 160, by = bin_width))
+
+Quarterback_gamelogs$Passer.Rating = cut(Quarterback_gamelogs$Passer.Rating, 
+                                            breaks = bin_breaks,
+                                            right = FALSE)
+
+Quarterback_gamelogs$Passer.Rating2.0 = cut(Quarterback_gamelogs$Passer.Rating2.0, 
+                                              breaks = bin_breaks,
+                                              right = FALSE)
+
+# Create a bar chart with two bars for each bin
+ggplot(Quarterback_gamelogs, aes(x = Passer.Rating)) +
+  geom_bar(aes(fill = "Passer.Rating"), position = "dodge") +
+  geom_bar(aes(x = Passer.Rating2.0, fill = "Passer.Rating2.0"), position = "dodge") +
+  labs(x = "Passer Rating", y = "Count") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Passer.Rating" = "skyblue", "Passer.Rating2.0" = "lightcoral")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
-I perform a regression on the full offense Univariate
+I perform an univariate regression on the full offensive performance to see which individual stat has the highest effect on offensive points. The results of the regression show which individual stat would be best to explain the variance in points scored by the offense. As expected, the Passer ratings have the highest scores with passer rating 2.0 slightly edging out the original passer rating
 ```{r Regression full offense univariate}
-# In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
+# Create the regression dataframe
 regression_results_Offense = data.frame()
 # Create a loop for all statistics in the offense that might have an effect on offensive production
-Stats_of_Interest = c(9:20,23:32,34:43,45:52)
+Stats_of_Interest = c(9:21, 23:32, 34:43, 45:52)
 for (i in Stats_of_Interest) {  
   DV = "Offensive.Points"    
   IV = names(Offensive_gamelog_Combined)[i] 
   
-  # Fit the regression model
+# Run the regression model
   model = lm(paste(DV, "~", IV), data = Offensive_gamelog_Combined)
   
-  # Extract relevant information
+# Extract relevant information
   intercept = coef(model)[1]
   coefficient = coef(model)[2]
   p_value = summary(model)$coefficients[2, 4]
   adj_r2 = summary(model)$adj.r.squared
   
-  # Add results to the dataframe
+# Add results to the dataframe
   result_row = data.frame(IV, coefficient, intercept, p_value, adj_r2)
   regression_results_Offense = rbind(regression_results_Offense, result_row)
 }
@@ -257,7 +286,8 @@ regression_results_Offense$coefficient = round(regression_results_Offense$coeffi
 regression_results_Offense$adj_r2 = round(regression_results_Offense$adj_r2, digits = 3)
 regression_results_Offense = regression_results_Offense[order(-regression_results_Offense$adj_r2), ]
 knitr::kable(regression_results_Offense, row.names = FALSE, format = "markdown")
-# Create a bar chart using ggplot2
+
+# Create a bar chart of the 10 stats that have the biggest effect
 ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = adj_r2)) +
   geom_bar(stat = "identity", fill = "blue") +
   labs(x = "Variables", y = "Adj_r_squared", title = "What stat is the best predictor for offensive output") +
@@ -265,20 +295,20 @@ ggplot(head(regression_results_Offense, 10), aes(x = reorder(IV, -adj_r2), y = a
 ```
 
 
-Now I try the same but with a multivariate approach
+Now I try the same but with a linear multivariate regression approach. This calculates how much each statistic individually explains of the variance in offensive points scored. Results show that althought the p-values are quite high, the variance explained by each individual variable is very low which might be caused by high correlation between variables.
 ```{r Regression full offense multivariate}
-# In this code, a regression model was used to assess the relationship between all offensive statistics and their impact on offensive point production.
-dependent_variable <- "Offensive.Points"
-independent_variables <- names(Offensive_gamelog_Combined)[Stats_of_Interest]
+# Setting which variables are dependent and independent
+dependent_variable = "Offensive.Points"
+independent_variables = names(Offensive_gamelog_Combined)[Stats_of_Interest]
 
-# Construct the formula for multivariate regression
-formula <- as.formula(paste(dependent_variable, "~", paste(independent_variables, collapse = " + ")))
+# Creating the formula that is going to be used for the regression
+formula = as.formula(paste(dependent_variable, "~", paste(independent_variables, collapse = " + ")))
 
-# Fit the multivariate linear regression model
-model <- lm(formula, data = Offensive_gamelog_Combined)
+# Fit the regression model
+model = lm(formula, data = Offensive_gamelog_Combined)
 
 # Extract relevant information
-coefficients <- coef(model)[-1]  # Exclude the intercept
+coefficients <- coef(model)[-1] 
 p_values <- summary(model)$coefficients[-1, 4]
 intercept = summary(model)
 adj_r2 <- summary(model)$adj.r.squared
@@ -288,35 +318,37 @@ result_summary <- data.frame(
   IV = independent_variables,
   Coefficient = coefficients,
   P_Value = p_values,
-  adj_r2 = adj_r2  # Changed to match the variable name you used later
+  adj_r2 = adj_r2 
 )
 
-# Initialize a vector to store the part R-squared values
-part_r_squared <- numeric(length(independent_variables))
+# Create a vector to store the part R-squared values
+part_r_squared = numeric(length(independent_variables))
 
 # Loop through the independent variables and calculate part R-squared
 for (i in 1:length(independent_variables)) {
-  IV_to_remove <- independent_variables[i]
+  IV_to_remove = independent_variables[i]
   
   # Fit the model without the current variable
-  reduced_formula <- as.formula(paste(dependent_variable, "~", paste(setdiff(independent_variables, IV_to_remove), collapse = " + ")))
-  reduced_model <- lm(reduced_formula, data = Offensive_gamelog_Combined)
+  reduced_formula = as.formula(paste(dependent_variable, "~", paste(setdiff(independent_variables, IV_to_remove), collapse = " + ")))
+  reduced_model = lm(reduced_formula, data = Offensive_gamelog_Combined)
   
   # Calculate the change in R-squared when the variable is removed
-  delta_r_squared <- adj_r2 - summary(reduced_model)$r.squared
+  delta_r_squared = adj_r2 - summary(reduced_model)$r.squared
   
   # Calculate the part R-squared for the current variable
-  part_r_squared[i] <- delta_r_squared
+  part_r_squared[i] = delta_r_squared
 }
 
 # Add part R-squared values to the result_summary dataframe
-result_summary$Part_R_Squared <- part_r_squared
+result_summary$Part_R_Squared = part_r_squared
 
 # Round, order, and print the updated regression results
-result_summary$Coefficient <- round(result_summary$Coefficient, digits = 3)
-result_summary$adj_r2 <- round(result_summary$adj_r2, digits = 3)
-result_summary$Part_R_Squared <- round(result_summary$Part_R_Squared, digits = 3)
-result_summary <- result_summary[order(-result_summary$Part_R_Squared), ]
+result_summary$Coefficient = round(result_summary$Coefficient, digits = 3)
+result_summary$adj_r2 = round(result_summary$adj_r2, digits = 3)
+result_summary$Part_R_Squared = round(result_summary$Part_R_Squared, digits = 3)
+result_summary = result_summary[order(-result_summary$Part_R_Squared), ]
+
+# Create a nice format for the table
 knitr::kable(result_summary, row.names = FALSE, format = "markdown")
 
 # Create a bar chart to visualize the part R-squared values
@@ -326,10 +358,35 @@ ggplot(head(result_summary, 10), aes(x = reorder(IV, -Part_R_Squared), y = Part_
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+To check whether the small values for part R_squared are caused by high correlation between statistics, a correlation matrix was made. This correlation matrix however did not produce extremely high results which could explain the values for part R_squared.
+```{r Correlation matrix}
 
-So from the results it is clear that the QB has the highest influence on the offensive output. I furthered the analysis by looking at the age at which 
+#redefining stats of interest to include only QB statistics
+Stats_of_Interest = c(7,9:21,51,52)
+
+#Saving the values for Stats of interest 
+variables_of_interest = Offensive_gamelog_Combined[Stats_of_Interest]
+
+# Calculate the correlation matrix
+correlation_matrix = cor(variables_of_interest)
+
+# Convert the correlation matrix to a format which can be put into a heatmap
+correlation_data = melt(correlation_matrix)
+
+# Create the correlation heatmap
+ggplot(data = correlation_data, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient(low = "red", high = "blue", limits = c(-1, 1)) + 
+  labs(title = "Correlation Heatmap",
+       x = "QB statistics",
+       y = "QB statistics") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Another question that I wanted to investigate was how age effects QB play. Therefore I've created a comparison of some of the most important variables of QB play.
 ```{r Best Age Quarterback}
-#The following chooses the stats that we want to compare across ages 
+#The following chooses the stats that I want to compare across ages 
 Age_stats_Columns_QB = c(15,17,20,21,23,31)
 Age_stats_Columns_QB = colnames(Quarterback_gamelogs[Age_stats_Columns_QB])
 
@@ -364,7 +421,7 @@ plot = plot + scale_y_continuous(
 plot = plot + scale_x_continuous(breaks = Age_stats_QB$Age[seq(1, nrow(Age_stats_QB), by = 4)], 
                                   labels = paste(Age_stats_QB$Age[seq(1, nrow(Age_stats_QB), by = 4)], "(", Age_stats_QB$Games[seq(1, nrow(Age_stats_QB), by = 5)], " games)"))
 
-#Creates a functioning legend
+#Creates a legend
 custom_colors = c("Ints" = "blue", "Rushing Attempts" = "red", "Sacks" = "green", "Passes Attempted" = "purple", "Offensive Points" = "orange")
 plot = plot + scale_color_manual(values = custom_colors)
 
@@ -396,7 +453,7 @@ for (i in rows_to_regress) {
   regression_results_Age = rbind(regression_results_Age, result_row)
 }
 
-# Print or analyze the regression results
+# Print, round and order the regression results
 regression_results_Age$intercept = round(regression_results_Age$intercept, digits = 3)
 regression_results_Age$coefficient = round(regression_results_Age$coefficient, digits = 3)
 regression_results_Age$adj_r2 = round(regression_results_Age$adj_r2, digits = 3)
@@ -404,12 +461,11 @@ regression_results_Age = regression_results_Age[order(-regression_results_Age$ad
 knitr::kable(regression_results_Age, row.names = FALSE, format = "markdown")
 ```
 
-What we can gather from this data is that aging quarterbacks typically tend to get better over time creating more offensive output per game. They do this by an increase of their passing attempts and a decrease in their rushing attempts. This can be explained by the risk of injury that rushing attempts have which does not suit an older QB
+What we can gather from this data is that aging quarterbacks typically tend to get better over time creating more offensive output per game. They do this by an increase of their passing attempts and a decrease in their rushing attempts. This can be explained by the risk of injury that rushing attempts have which does not suit an older QB and the increase of experience that a older QB has to oversee the play and see free wide receivers
 
-Lastly I was interested in which QB's have been the most successful over their entire career. Therefore, I've created the following scatter plot which compares passer rating to win percentage
-
+Furthermore, I was interested in which QB's have been the most successful over their entire career. Therefore, I've created the following scatter plot which compares passer rating to win percentage
 ```{r Career Stats}
-#Creates the player stats
+#Creates the player stats over their entire career
 Career_stats = Quarterback_gamelogs %>%
   group_by(Name, Birthyear) %>%
   summarise(
@@ -435,35 +491,40 @@ Career_stats$WinPercentage = floor(Career_stats$Wins/Career_stats$Amount_of_game
 Career_stats$Passer.Rating = calculate_passer_rating(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints)
 Career_stats$Passer.Rating2.0 = calculate_passer_rating2.0(Career_stats$Passes.Completed,Career_stats$Passes.Attempted, Career_stats$Passing.Yards, Career_stats$TD.Passes, Career_stats$Ints, Career_stats$Sacks, Career_stats$Sacked.Yards.Lost, Career_stats$Rushing.Attempts, Career_stats$Rushing.Yards, Career_stats$Fumbles, Career_stats$Fumbles.Lost)
 
+# Divides the players into 3 groups. Players that have less then 10 games, between 10 and 150 and above 150 games.
 Career_stats$games_group = cut(Career_stats$Amount_of_games, 
                         breaks = c(-Inf, 10, 150, Inf),
                         labels = c("Below 10", "10-150", "Above 150"))
 color_mapping = c("Below 10" = "black", "10-150" = "blue", "Above 150" = "red")
 
+# Create the scatterplot
 ggplot(Career_stats, aes(x = WinPercentage, y = Passer.Rating2.0, color = games_group)) +
   geom_point() +
   scale_color_manual(values = color_mapping) +
   labs(x = "WinPercentage", y = "Passer.Rating2.0") +
   ggtitle("Scatter Plot of Passer Rating2.0 vs. Win Percentage")
 
-filtered_qbs <- Career_stats %>% filter(Passer.Rating2.0 > 90, WinPercentage > 60, Amount_of_games > 50)
+# Filter out the best QB's that have played a significant amount of games
+filtered_qbs = Career_stats %>% filter(Passer.Rating2.0 > 90, WinPercentage > 60, Amount_of_games > 50)
 
 # Select the columns of interest
-result_table <- filtered_qbs %>% select(Name, WinPercentage, Passer.Rating2.0, Amount_of_games) %>%
+result_table = filtered_qbs %>% select(Name, WinPercentage, Passer.Rating2.0, Amount_of_games) %>%
                                  arrange(desc(Passer.Rating2.0)) 
 
-rownames(result_table) <- NULL
+rownames(result_table) = NULL
 
-# Print the result table without column types
+# Print the result table
 knitr::kable(result_table, format = "markdown")
 ```
 
+In the scatterplot you can see that Quarterbacks that have played a lot of games then to be located in the top right, thus having a great career performance. This makes sense as better QB's tend to play more games and be replaced less often. This is also visible in the table with the top 10 QB's that is dominated by experienced QB's
 
+Finally, I have performed a PCA to see if there are any characteristics that can clearly seperate QB's I have used the QB passer stats as well as sacks, offensive points, rumbles and rushing to base the PCA on. In the PCA the games are color coded for the generation in which the player has played, how many games they have played and their average passer rating.  
 
-```{r Biplot}
+```{r PCA}
 # Divide the variables of interest by Amount_of_games
-Career_stats_average <- Career_stats %>%
-  mutate(
+Career_stats_average = Career_stats %>%
+  mutate (
     Passing.Yards = Passing.Yards / Amount_of_games,
     Passes.Completed = Passes.Completed / Amount_of_games,
     Passes.Attempted = Passes.Attempted / Amount_of_games,
@@ -479,71 +540,75 @@ Career_stats_average <- Career_stats %>%
   )
 
 
-
-Career_stats_average$Generation_Category <- cut(
+#Subdivide the players into their different generations
+Career_stats_average$Generation_Category = cut(
   Career_stats_average$Generation,
   breaks = c(1960, 1980, 2000, Inf),
   labels = c("1960-1980", "1980-2000", "> 2000")
 )
 
-Career_stats_average$Amount_of_games_Category <- cut(
+#Subdivide the players into groups based on the amount of games played
+Career_stats_average$Amount_of_games_Category = cut(
   Career_stats_average$Amount_of_games,
   breaks = c(-Inf, 10, 100, Inf),
   labels = c("Less then 10", "10-100", "> 100")
 )
 
-Career_stats_average$Passer.Rating2.0_Category <- cut(
+#subdivide the players based on their Passer Rating
+Career_stats_average$Passer.Rating2.0_Category = cut(
   Career_stats_average$Passer.Rating2.0,
   breaks = c(-Inf, 70, 90, Inf),
   labels = c("Less then 70", "70-90", "> 90")
 )
 
-## Select the numeric variables for PCA (excluding non-numeric and response variables)
-variables_of_interest <- Career_stats_average[, c(
+## Select the variables that are included into the PCA
+variables_of_interest = Career_stats_average[, c(
   "Passes.Completed", "Passes.Attempted",
   "Sacks", "Rushing.Attempts", "Fumbles", "Ints", "TD.Passes",
   "Offensive.Points"
 )]
 
 # Standardize the data (mean center and scale)
-standardized_data <- scale(variables_of_interest)
+standardized_data = scale(variables_of_interest)
 
 # Perform PCA
-pca_result <- prcomp(standardized_data)
+pca_result = prcomp(standardized_data)
 
 # Summary of PCA results
 summary(pca_result)
 
 # Variance explained by each principal component
-var_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+var_explained = pca_result$sdev^2 / sum(pca_result$sdev^2)
 
-# Scree plot to visualize variance explained
-scree_plot <- ggplot() +
+# Scree plot to visualize variance explained by each PC
+scree_plot = ggplot() +
   geom_bar(aes(x = 1:length(var_explained), y = var_explained), stat = "identity") +
   labs(x = "Principal Component", y = "Variance Explained") +
   ggtitle("Scree Plot")
 
-
-color_mapping <- c(             
+#Create color mapping that is used for the generation separation
+color_mapping = c(             
   "1960-1980" = "blue",         # Between 1960 and 1980
   "1980-2000" = "green",        # Between 1980 and 2000
   "> 2000" = "purple"           # Later than 2000
 )
 
-color_mapping2 <- c(             
+#Create color mapping that is used for the amount of games separation
+color_mapping2 = c(             
   "Less then 10" = "blue",      # Less then 10
   "10-100" = "green",           # between 10 and 100
   "> 100" = "purple"            # More than 100
 )
 
-color_mapping3 <- c(             
-  "Less then 10" = "blue",      # Less then 10
-  "10-100" = "green",           # between 10 and 100
-  "> 100" = "purple"            # More than 100
+#Create color mapping that is used for the separation based on passer rating
+color_mapping3 = c(             
+  "Less then 70" = "blue",     # Less then 70
+  "70-90" = "green",           # between 70 and 90
+  "> 90" = "purple"            # More than 90
 )
 
-
-pca_data_generation <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Generation = Career_stats_average$Generation)
+#create the data for the generation PCA
+pca_data_generation = data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Generation = Career_stats_average$Generation)
 
 
 pc1_pc2_plot_Generation = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Generation_Category)) +
@@ -554,33 +619,31 @@ pc1_pc2_plot_Generation = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = P
 
 
 
+#create the data for the amount of games PCA
+pca_data_Games = data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Amount_of_games = Career_stats_average$Amount_of_games)
 
-pca_data_Games <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Amount_of_games = Career_stats_average$Amount_of_games)
 
-
-pc1_pc2_plot_PasserRating = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Amount_of_games_Category)) +
+pc1_pc2_plot_Games = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Amount_of_games_Category)) +
   geom_point() +
   labs(x = "PC1", y = "PC2", color = "Amount_of_games") +
   ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
   scale_color_manual(values = color_mapping2)  
 
-pca_data_Passer.Rating2.0 <- data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Passer.Rating2.0 = Career_stats_average$Passer.Rating2.0)
 
-pc1_pc2_plot_Games = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Passer.Rating2.0_Category)) +
+#create the data for the Passer rating PCA
+pca_data_Passer.Rating2.0 = data.frame(PC1 = pca_result$x[, 1], PC2 = pca_result$x[, 2], Passer.Rating2.0 = Career_stats_average$Passer.Rating2.0)
+
+pc1_pc2_plot_Passer.Rating2.0 = ggplot(as.data.frame(pca_result$x), aes(x = PC1, y = PC2, color = Career_stats_average$Passer.Rating2.0_Category)) +
   geom_point() +
   labs(x = "PC1", y = "PC2", color = "Passer.Rating2.0") +
-  ggtitle("PCA: PC1 vs. PC2 seperated by amount of games") +
+  ggtitle("PCA: PC1 vs. PC2 seperated by passer rating") +
   scale_color_manual(values = color_mapping3)  
 
 # Print or visualize the PCA results and plots
-print(pca_result)
 print(scree_plot)
 print(pc1_pc2_plot_Generation)
 print(pc1_pc2_plot_Games)
-print(pc1_pc2_plot_PasserRating)
-
-
-# Create a biplot
-biplot(pca_result, scale = 0, col = c("white", "black"))
+print(pc1_pc2_plot_Passer.Rating2.0)
 ```
 
+Overall, the results don't show a clear separation in games between generations. What it does show is a clear gradient based on the amount of games played as well as the passer rating. The Passer rating result is slightly biased since the variables on which passer rating are based can also be found in the PCA analysis. However it is interesting to see that amount of games, specifically players in the >100 group are separated from the other players. This agrees with the previously found results that also saw that more experienced players typically tend to play better than their less experienced counterparts
