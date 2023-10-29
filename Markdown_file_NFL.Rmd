@@ -182,9 +182,7 @@ calculate_passer_rating = function(COMP, ATT, YDS, TD, INT) {
 }
 ```
 
-
-
-Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0. Scores are of similar spread and are between 0 and 163.2
+Since Passer rating does not include the entire skillset of a QB I have extended the function to include rushing, sacks and fumbles creating Passer rating2.0. Scores are more centered and are between 0 and 158.3
 ```{r Passer rating2.0, echo=TRUE}
 #Create an improved passer rating function
 calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH, R.YDS, FUMB, FUMB.L) {
@@ -193,11 +191,11 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   b = ((YDS / ATT) - 3) * 0.25
   c = (TD / ATT) * 20
   d = 2.375 - ((INT / ATT) * 25)
-  e = ifelse(SACK == 0, 1.18875, 1.18875 - ((SACK / ATT) * (S.YDS / SACK)))
+  e = ifelse(SACK == 0, 1.1875, 1.1875 - ((SACK / ATT) * (S.YDS / SACK)))
   f = ifelse(RUSH == 0, 0, ((R.YDS / RUSH) - 3) * 0.25)
   g = 2.375 - ((FUMB/ATT)*3 + (FUMB.L/ATT)*22)
   
-  # Ensure that a,b,c & d are below 2.375, f is below 1 and that everything is above 0
+  # Ensure that a,b,c & d are below 2.375, f is below 1.18875 and that everything is above 0
   a = pmin(a, 2.375)
   a = pmax(a, 0)
   b = pmin(b, 2.375)
@@ -206,7 +204,7 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
   c = pmax(c,0)
   d = pmax(d, 0)
   e = pmax(e, 0)
-  f = pmin(f,1.18875)
+  f = pmin(f,1.1875)
   f = pmax(f,0)
   g = pmax(g,0)
   
@@ -217,13 +215,40 @@ calculate_passer_rating2.0 = function(COMP, ATT, YDS, TD, INT, SACK, S.YDS, RUSH
 }
 ```
 
-```{r Calculating passer rating}
-#The following code just uses the functions to calculate passer rating and passer rating2.0 for both the Quarterback_gamelogs and the Offensive_gamelog_Combined
+```{r box plot passer_rating}
 Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
 Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
 
 Quarterback_gamelogs$Passer.Rating2.0 = calculate_passer_rating2.0(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints, Quarterback_gamelogs$Sacks, Quarterback_gamelogs$Sacked.Yards.Lost, Quarterback_gamelogs$Rushing.Attempts, Quarterback_gamelogs$Rushing.Yards, Quarterback_gamelogs$Fumbles, Quarterback_gamelogs$Fumbles.Lost)
 Offensive_gamelog_Combined$QB_Passer.Rating2.0 = calculate_passer_rating2.0(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints, Offensive_gamelog_Combined$QB_Sacks, Offensive_gamelog_Combined$QB_Sacked.Yards.Lost, Offensive_gamelog_Combined$QB_Rushing.Attempts, Offensive_gamelog_Combined$QB_Rushing.Yards, Offensive_gamelog_Combined$QB_Fumbles, Offensive_gamelog_Combined$QB_Fumbles.Lost)
+
+bin_width <- 5
+bin_breaks <- c(0, seq(5, 160, by = bin_width))
+
+Quarterback_gamelogs$Passer.Rating <- cut(Quarterback_gamelogs$Passer.Rating, 
+                                            breaks = bin_breaks,
+                                            right = FALSE)
+
+Quarterback_gamelogs$Passer.Rating2.0 <- cut(Quarterback_gamelogs$Passer.Rating2.0, 
+                                              breaks = bin_breaks,
+                                              right = FALSE)
+
+# Create a bar chart with two bars for each bin
+ggplot(Quarterback_gamelogs, aes(x = Passer.Rating)) +
+  geom_bar(aes(fill = "Passer.Rating"), position = "dodge") +
+  geom_bar(aes(x = Passer.Rating2.0, fill = "Passer.Rating2.0"), position = "dodge") +
+  labs(x = "Passer Rating (Binned)", y = "Count") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Passer.Rating" = "skyblue", "Passer.Rating2.0" = "lightcoral")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r Calculating passer rating}
+#The following code just uses the functions to calculate passer rating and passer rating2.0 for both the Quarterback_gamelogs and the Offensive_gamelog_Combined
+Quarterback_gamelogs$Passer.Rating = calculate_passer_rating(Quarterback_gamelogs$Passes.Completed,Quarterback_gamelogs$Passes.Attempted, Quarterback_gamelogs$Passing.Yards, Quarterback_gamelogs$TD.Passes, Quarterback_gamelogs$Ints)
+Offensive_gamelog_Combined$QB_Passer.Rating = calculate_passer_rating(Offensive_gamelog_Combined$QB_Passes.Completed,Offensive_gamelog_Combined$QB_Passes.Attempted, Offensive_gamelog_Combined$QB_Passing.Yards, Offensive_gamelog_Combined$QB_TD.Passes, Offensive_gamelog_Combined$QB_Ints)
+
+
 ```
 
 
